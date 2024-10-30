@@ -1,11 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
-
-	"database/sql"
 
 	"github.com/gorilla/websocket"
 )
@@ -18,6 +17,7 @@ var upgrader = websocket.Upgrader{
 } // use default options
 
 func echo(w http.ResponseWriter, r *http.Request) {
+
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -39,20 +39,43 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func test(db *sql.DB) {
-	AddMessage(db, "test message", "test user")
-	log.Println(GetMessages(db))
+func chat(w http.ResponseWriter, r *http.Request) {
+	db := OpenDB()
+	defer CloseDB(db)
 
+	c, err := upgrader.Upgrade(w, r, nil)
+
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+
+	defer c.Close()
+	for {
+		mt, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			break
+		}
+		AddMessage(db, string(message), "test user")
+
+		messageJson, err := json.Marshal(GetMessages(db))
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = c.WriteMessage(mt, messageJson)
+		if err != nil {
+			log.Println("write:", err)
+			break
+		}
+	}
 }
 
 func main() {
-	db := OpenDB()
 	log.Println("server started")
-	defer CloseDB(db)
-
-	test(db)
 	flag.Parse()
 	log.SetFlags(0)
 	http.HandleFunc("/echo", echo)
+	http.HandleFunc("/chat", chat)
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }

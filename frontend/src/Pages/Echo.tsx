@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-function App() {
+function Echo() {
   const [message, setMessage] = useState("")
   const [messages, setMessages] = useState([] as string[])
 
@@ -35,4 +35,4 @@ function App() {
   )
 }
 
-export default App
+export default Echo
