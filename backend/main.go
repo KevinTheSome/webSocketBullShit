@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -39,43 +38,47 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func chat(w http.ResponseWriter, r *http.Request) {
-	db := OpenDB()
-	defer CloseDB(db)
+// func chat(w http.ResponseWriter, r *http.Request) {
+// 	db := OpenDB()
 
-	c, err := upgrader.Upgrade(w, r, nil)
+// 	c, err := upgrader.Upgrade(w, r, nil)
+// 	if err != nil {
+// 		log.Print("upgrade:", err)
+// 		return
+// 	}
 
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
+// 	defer CloseDB(db)
+// 	defer c.Close()
 
-	defer c.Close()
-	for {
-		mt, message, err := c.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			break
-		}
-		AddMessage(db, string(message), "test user")
+// 	for {
+// 		mt, message, err := c.ReadMessage()
+// 		if err != nil {
+// 			log.Println("read:", err)
+// 			break
+// 		}
+// 		AddMessage(db, string(message), "test user")
 
-		messageJson, err := json.Marshal(GetMessages(db))
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = c.WriteMessage(mt, messageJson)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
-	}
-}
+// 		messageJson, err := json.Marshal(GetMessages(db))
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 		err = c.WriteMessage(mt, messageJson)
+// 		if err != nil {
+// 			log.Println("write:", err)
+// 			break
+// 		}
+// 	}
+// }
 
 func main() {
 	log.Println("server started")
 	flag.Parse()
 	log.SetFlags(0)
+	hub := newHub()
+	go hub.run()
+	http.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
+		serveWs(hub, w, r)
+	})
 	http.HandleFunc("/echo", echo)
-	http.HandleFunc("/chat", chat)
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
